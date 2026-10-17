@@ -12,7 +12,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
 
-#define TRACKBALL_PIM447_POLL_MS 20
+#define TRACKBALL_PIM447_POLL_MS 10
 
 
 // Define custom sensor attributes (starting from private range)
