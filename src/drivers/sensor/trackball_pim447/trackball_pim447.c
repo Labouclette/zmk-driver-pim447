@@ -14,6 +14,7 @@
 
 #define TRACKBALL_PIM447_POLL_MS 10
 
+#define TRACKBALL_PIM447_REG_SWITCH 0x08
 
 // Define custom sensor attributes (starting from private range)
 #define PIM447_ATTR_LED_RGB (SENSOR_ATTR_PRIV_START)
