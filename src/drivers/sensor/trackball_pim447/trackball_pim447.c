@@ -411,13 +411,14 @@ static int trackball_pim447_init(const struct device *dev)
     data->scroll_factor = config->scroll_factor;
     data->mode = 0; // Default to move mode
 
-    /* Set the initial LED color */
-    err = trackball_pim447_set_led(dev, config->led_red, config->led_green, config->led_blue);
-    if (err < 0)
-    {
-        LOG_ERR("Failed to set initial LED color");
-        return err;
-    }
+   /* Diagnostic PIM447 : forcer la LED en bleu */
+err = trackball_pim447_set_led(dev, 0, 0, 255);
+
+if (err < 0)
+{
+    /* Ne pas démarrer le polling si l'I2C échoue */
+    return err;
+}
 
     data->dev = dev;
     k_work_init_delayable(&data->poll_work, trackball_pim447_poll);
