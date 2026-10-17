@@ -441,59 +441,41 @@ static void trackball_pim447_poll(struct k_work *work)
 
     const struct device *dev = data->dev;
 
-    int16_t dx = 0;
-    int16_t dy = 0;
+    /* Lecture groupée des registres 0x04 à 0x08 :
+     * LEFT, RIGHT, UP, DOWN, SWITCH.
+     * Conserve la correspondance des axes et le clic existants.
+     */
+    const struct trackball_pim447_config *config = dev->config;
+    uint8_t start_reg = TRACKBALL_PIM447_REG_LEFT;
+    uint8_t values[5] = {0};
 
-    int err_x = trackball_pim447_read_axis(
-        dev,
-        TRACKBALL_PIM447_REG_LEFT,
-        TRACKBALL_PIM447_REG_RIGHT,
-        &dx
-    );
+    int err = i2c_write_read_dt(&config->i2c, &start_reg,
+                                sizeof(start_reg), values, sizeof(values));
 
-    int err_y = trackball_pim447_read_axis(
-        dev,
-        TRACKBALL_PIM447_REG_UP,
-        TRACKBALL_PIM447_REG_DOWN,
-        &dy
-    );
-
-    if (err_x == 0 && err_y == 0) {
-
-        int32_t move_x = dx;
-        int32_t move_y = dy;
+    if (err == 0) {
+        int32_t move_x = (int32_t)values[1] - values[0];
+        int32_t move_y = (int32_t)values[3] - values[2];
 
         if (data->invert_x) {
             move_x = -move_x;
         }
-
         if (data->invert_y) {
             move_y = -move_y;
         }
 
-        move_x = move_x * data->sensitivity *
-                 data->move_factor / 64;
+        move_x = move_x * data->sensitivity * data->move_factor / 64;
+        move_y = move_y * data->sensitivity * data->move_factor / 64;
 
-        move_y = move_y * data->sensitivity *
-                 data->move_factor / 64;
+        if (move_x != 0 || move_y != 0) {
+            /* Axes permutés et sens vertical corrigé : inchangés. */
+            input_report_rel(dev, INPUT_REL_X, move_y, false, K_NO_WAIT);
+            input_report_rel(dev, INPUT_REL_Y, -move_x, true, K_NO_WAIT);
+        }
 
-if (move_x != 0 || move_y != 0) {
-    /* Axes permutés et sens vertical corrigé */
-    input_report_rel(dev, INPUT_REL_X,
-                     move_y, false, K_NO_WAIT);
-
-    input_report_rel(dev, INPUT_REL_Y,
-                     -move_x, true, K_NO_WAIT);
-}
-    }
-
-    /* Le bit 7 du registre SWITCH indique l'appui physique. */
-    uint8_t switch_state = 0;
-    if (trackball_pim447_read_reg(dev, TRACKBALL_PIM447_REG_SWITCH,
-                                  &switch_state) == 0) {
+        /* Même bit et même code de clic que dans le firmware fonctionnel. */
+        uint8_t switch_state = values[4];
         bool pressed = (switch_state & 0x80U) != 0U;
         data->button_state = switch_state;
-
         if (pressed != data->button_pressed) {
             data->button_pressed = pressed;
             input_report_key(dev, INPUT_BTN_0, pressed ? 1 : 0,
