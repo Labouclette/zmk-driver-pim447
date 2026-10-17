@@ -433,35 +433,63 @@ if (err < 0)
 
 static void trackball_pim447_poll(struct k_work *work)
 {
-    struct k_work_delayable *delayable = k_work_delayable_from_work(work);
+    struct k_work_delayable *delayable =
+        k_work_delayable_from_work(work);
+
     struct trackball_pim447_data *data =
         CONTAINER_OF(delayable, struct trackball_pim447_data, poll_work);
+
     const struct device *dev = data->dev;
-    const struct trackball_pim447_config *config = dev->config;
-    uint8_t reg = TRACKBALL_PIM447_REG_LEFT;
-    uint8_t movement[4] = {0};
 
-    /* One burst read of LEFT, RIGHT, UP, DOWN. */
-    int err = i2c_write_read_dt(&config->i2c, &reg, 1,
-                                movement, sizeof(movement));
-    if (err == 0) {
-        int32_t dx = ((int32_t)movement[1] - movement[0]);
-        int32_t dy = ((int32_t)movement[3] - movement[2]);
+    int16_t dx = 0;
+    int16_t dy = 0;
 
-        if (data->invert_x) dx = -dx;
-        if (data->invert_y) dy = -dy;
-        dx = dx * data->sensitivity * data->move_factor / 64;
-        dy = dy * data->sensitivity * data->move_factor / 64;
+    int err_x = trackball_pim447_read_axis(
+        dev,
+        TRACKBALL_PIM447_REG_LEFT,
+        TRACKBALL_PIM447_REG_RIGHT,
+        &dx
+    );
 
-        if (dx != 0 || dy != 0) {
-            /* Sync only on the last event in a pair. */
-            input_report_rel(dev, INPUT_REL_X, dx, false, K_NO_WAIT);
-            input_report_rel(dev, INPUT_REL_Y, dy, true, K_NO_WAIT);
+    int err_y = trackball_pim447_read_axis(
+        dev,
+        TRACKBALL_PIM447_REG_UP,
+        TRACKBALL_PIM447_REG_DOWN,
+        &dy
+    );
+
+    if (err_x == 0 && err_y == 0) {
+
+        int32_t move_x = dx;
+        int32_t move_y = dy;
+
+        if (data->invert_x) {
+            move_x = -move_x;
+        }
+
+        if (data->invert_y) {
+            move_y = -move_y;
+        }
+
+        move_x = move_x * data->sensitivity *
+                 data->move_factor / 64;
+
+        move_y = move_y * data->sensitivity *
+                 data->move_factor / 64;
+
+        if (move_x != 0 || move_y != 0) {
+            input_report_rel(dev, INPUT_REL_X,
+                             move_x, false, K_NO_WAIT);
+
+            input_report_rel(dev, INPUT_REL_Y,
+                             move_y, true, K_NO_WAIT);
         }
     }
 
-    k_work_reschedule(&data->poll_work,
-                      K_MSEC(TRACKBALL_PIM447_POLL_MS));
+    k_work_reschedule(
+        &data->poll_work,
+        K_MSEC(TRACKBALL_PIM447_POLL_MS)
+    );
 }
 
 /* API functions structure */
