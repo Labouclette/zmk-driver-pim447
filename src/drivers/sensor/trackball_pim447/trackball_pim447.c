@@ -496,7 +496,7 @@ if (move_x != 0 || move_y != 0) {
 
         if (pressed != data->button_pressed) {
             data->button_pressed = pressed;
-            input_report_key(dev, INPUT_BTN_LEFT, pressed ? 1 : 0,
+            input_report_key(dev, INPUT_BTN_0, pressed ? 1 : 0,
                              true, K_NO_WAIT);
         }
     }
