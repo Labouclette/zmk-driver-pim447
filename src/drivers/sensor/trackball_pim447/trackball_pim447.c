@@ -407,8 +407,8 @@ static int trackball_pim447_init(const struct device *dev)
     /* Store configuration in runtime data */
     data->invert_x = config->invert_x;
     data->invert_y = config->invert_y;
-    data->sensitivity = 64;
-    data->move_factor = 30;
+    data->sensitivity = config->sensitivity;
+    data->move_factor = config->move_factor;
     data->scroll_factor = config->scroll_factor;
     data->mode = 0; // Default to move mode
 
