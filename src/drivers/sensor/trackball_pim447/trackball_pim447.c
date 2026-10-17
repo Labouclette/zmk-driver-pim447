@@ -8,6 +8,8 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/drivers/sensor.h>
+#include <zephyr/input/input.h>
+#include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
 
 // Define custom sensor attributes (starting from private range)
@@ -37,6 +39,8 @@ LOG_MODULE_REGISTER(trackball_pim447);
 struct trackball_pim447_data
 {
     const struct device *i2c_dev;
+    const struct device *dev;
+    struct k_work_delayable poll_work;
     int16_t dx;
     int16_t dy;
     uint8_t button_state;
@@ -382,6 +386,8 @@ static int trackball_pim447_attr_set(const struct device *dev, enum sensor_chann
  * @param dev Device instance
  * @return 0 on success, negative error code otherwise
  */
+static void trackball_pim447_poll(struct k_work *work);
+
 static int trackball_pim447_init(const struct device *dev)
 {
     const struct trackball_pim447_config *config = dev->config;
@@ -411,8 +417,48 @@ static int trackball_pim447_init(const struct device *dev)
         return err;
     }
 
+    data->dev = dev;
+    k_work_init_delayable(&data->poll_work, trackball_pim447_poll);
+    k_work_schedule(&data->poll_work, K_MSEC(TRACKBALL_PIM447_POLL_MS));
+
     LOG_INF("Pimoroni Trackball initialized (addr: 0x%02x)", config->i2c.addr);
     return 0;
+}
+
+/* Poll the PIM447 and publish relative movement through Zephyr Input. */
+#define TRACKBALL_PIM447_POLL_MS 20
+
+static void trackball_pim447_poll(struct k_work *work)
+{
+    struct k_work_delayable *delayable = k_work_delayable_from_work(work);
+    struct trackball_pim447_data *data =
+        CONTAINER_OF(delayable, struct trackball_pim447_data, poll_work);
+    const struct device *dev = data->dev;
+    const struct trackball_pim447_config *config = dev->config;
+    uint8_t reg = TRACKBALL_PIM447_REG_LEFT;
+    uint8_t movement[4] = {0};
+
+    /* One burst read of LEFT, RIGHT, UP, DOWN. */
+    int err = i2c_write_read_dt(&config->i2c, &reg, 1,
+                                movement, sizeof(movement));
+    if (err == 0) {
+        int32_t dx = ((int32_t)movement[1] - movement[0]);
+        int32_t dy = ((int32_t)movement[3] - movement[2]);
+
+        if (data->invert_x) dx = -dx;
+        if (data->invert_y) dy = -dy;
+        dx = dx * data->sensitivity * data->move_factor / 64;
+        dy = dy * data->sensitivity * data->move_factor / 64;
+
+        if (dx != 0 || dy != 0) {
+            /* Sync only on the last event in a pair. */
+            input_report_rel(dev, INPUT_REL_X, dx, false, K_NO_WAIT);
+            input_report_rel(dev, INPUT_REL_Y, dy, true, K_NO_WAIT);
+        }
+    }
+
+    k_work_reschedule(&data->poll_work,
+                      K_MSEC(TRACKBALL_PIM447_POLL_MS));
 }
 
 /* API functions structure */
