@@ -12,8 +12,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
 
-#define TRACKBALL_PIM447_POLL_MS 20
-
 // Define custom sensor attributes (starting from private range)
 #define PIM447_ATTR_LED_RGB (SENSOR_ATTR_PRIV_START)
 #define PIM447_ATTR_MODE (SENSOR_ATTR_PRIV_START + 1)
