@@ -475,13 +475,14 @@ static void trackball_pim447_poll(struct k_work *work)
         move_y = move_y * data->sensitivity *
                  data->move_factor / 64;
 
-        if (move_x != 0 || move_y != 0) {
-            input_report_rel(dev, INPUT_REL_X,
-                             move_x, false, K_NO_WAIT);
+if (move_x != 0 || move_y != 0) {
+    /* Permutation des axes X et Y */
+    input_report_rel(dev, INPUT_REL_X,
+                     move_y, false, K_NO_WAIT);
 
-            input_report_rel(dev, INPUT_REL_Y,
-                             move_y, true, K_NO_WAIT);
-        }
+    input_report_rel(dev, INPUT_REL_Y,
+                     move_x, true, K_NO_WAIT);
+}
     }
 
     k_work_reschedule(
