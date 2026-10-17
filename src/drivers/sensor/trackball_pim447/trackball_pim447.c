@@ -48,6 +48,9 @@ struct trackball_pim447_data
     int16_t dy;
     uint8_t button_state;
     bool button_pressed;
+    /* Moitie du dernier mouvement, a envoyer au prochain polling. */
+    int32_t pending_x;
+    int32_t pending_y;
     bool invert_x;
     bool invert_y;
     uint8_t sensitivity;
@@ -413,6 +416,8 @@ static int trackball_pim447_init(const struct device *dev)
     data->scroll_factor = config->scroll_factor;
     data->mode = 0; // Default to move mode
     data->button_pressed = false;
+    data->pending_x = 0;
+    data->pending_y = 0;
 
 /* Diagnostic PIM447 : forcer la LED en bleu */
 err = trackball_pim447_set_led(dev, 0, 100, 150);
@@ -466,10 +471,23 @@ static void trackball_pim447_poll(struct k_work *work)
         move_x = move_x * data->sensitivity * data->move_factor / 64;
         move_y = move_y * data->sensitivity * data->move_factor / 64;
 
-        if (move_x != 0 || move_y != 0) {
-            /* Axes permutés et sens vertical corrigé : inchangés. */
-            input_report_rel(dev, INPUT_REL_X, move_y, false, K_NO_WAIT);
-            input_report_rel(dev, INPUT_REL_Y, -move_x, true, K_NO_WAIT);
+        /* Lissage sur deux polls (10 ms chacun) :
+         * envoyer la premiere moitie maintenant, la seconde au poll suivant.
+         * Le reliquat du poll precedent est toujours envoye, meme sans
+         * nouveau mouvement. Aucun deplacement n'est perdu par l'arrondi.
+         */
+        int32_t first_x = move_x / 2;
+        int32_t first_y = move_y / 2;
+        int32_t send_x = data->pending_x + first_x;
+        int32_t send_y = data->pending_y + first_y;
+
+        data->pending_x = move_x - first_x;
+        data->pending_y = move_y - first_y;
+
+        if (send_x != 0 || send_y != 0) {
+            /* Axes permutes et sens vertical corrige : inchanges. */
+            input_report_rel(dev, INPUT_REL_X, send_y, false, K_NO_WAIT);
+            input_report_rel(dev, INPUT_REL_Y, -send_x, true, K_NO_WAIT);
         }
 
         /* Même bit et même code de clic que dans le firmware fonctionnel. */
