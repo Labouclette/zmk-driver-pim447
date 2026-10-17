@@ -12,6 +12,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
 
+#define TRACKBALL_PIM447_POLL_MS 20
+
+
 // Define custom sensor attributes (starting from private range)
 #define PIM447_ATTR_LED_RGB (SENSOR_ATTR_PRIV_START)
 #define PIM447_ATTR_MODE (SENSOR_ATTR_PRIV_START + 1)
@@ -425,9 +428,6 @@ if (err < 0)
     LOG_INF("Pimoroni Trackball initialized (addr: 0x%02x)", config->i2c.addr);
     return 0;
 }
-
-/* Poll the PIM447 and publish relative movement through Zephyr Input. */
-#define TRACKBALL_PIM447_POLL_MS 20
 
 static void trackball_pim447_poll(struct k_work *work)
 {
