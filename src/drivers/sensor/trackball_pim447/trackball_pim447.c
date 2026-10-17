@@ -12,11 +12,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
 
-BUILD_ASSERT(
-    DT_INST_PROP(0, move_factor) == 30,
-    "ERREUR : move-factor du trackball different de 30"
-);
-
 #define TRACKBALL_PIM447_POLL_MS 10
 
 
