@@ -412,9 +412,14 @@ static int trackball_pim447_init(const struct device *dev)
     data->scroll_factor = config->scroll_factor;
     data->mode = 0; // Default to move mode
 
-   /* Diagnostic PIM447 : forcer la LED en bleu */
-err = trackball_pim447_set_led(dev, 0, 0, 255);
-
+/* Utiliser la couleur LED définie dans sofle_right.overlay */
+err = trackball_pim447_set_led(
+    dev,
+    config->led_red,
+    config->led_green,
+    config->led_blue
+);
+    
 if (err < 0)
 {
     /* Ne pas démarrer le polling si l'I2C échoue */
